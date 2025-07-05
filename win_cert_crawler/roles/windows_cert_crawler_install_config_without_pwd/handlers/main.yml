@@ -1,0 +1,10 @@
+---
+# handlers/main.yml for windows_cert_crawler_install_config_without_pwd
+
+- name: log_collect_certs_without_pwd
+  win_shell: |
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "collect_certs_without_pwd completed successfully at {{ ansible_date_time.iso8601 }}"
+
+- name: log_config_crawler_without_pwd
+  win_shell: |
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "config_crawler_without_pwd completed successfully at {{ ansible_date_time.iso8601 }}"

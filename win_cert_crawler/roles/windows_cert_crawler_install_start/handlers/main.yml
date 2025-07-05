@@ -1,0 +1,6 @@
+---
+# handlers/main.yml for windows_cert_crawler_install_start
+
+- name: log_start_crawler
+  win_shell: |
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "start crawler completed successfully at {{ ansible_date_time.iso8601 }}"

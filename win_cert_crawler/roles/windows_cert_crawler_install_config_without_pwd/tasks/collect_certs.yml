@@ -30,3 +30,4 @@
 - name: Generate JSON B64 for Powershell
   set_fact:
     json_data_b64: "{{ collected_certs | to_json | b64encode }}"
+  notify: log_collect_certs_without_pwd

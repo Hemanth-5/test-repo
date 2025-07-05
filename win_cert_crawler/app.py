@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import json
-import subprocess
 
 def main():
     # Load your JSON file
@@ -14,38 +13,37 @@ def main():
         default_value = item["default-value"]
         params[param_name] = default_value
 
-    # Prepare the -e arguments string
+    # Build the extra vars string
     extra_vars = []
     for k, v in params.items():
-        # Important: For Windows paths, escape backslashes to double-backslashes
-        if "\\" in v:
-            v = v.replace("\\", "\\\\")
-        extra_vars.append(f'{k}="{v}"')
+        # For Linux shell, single-quote everything safely
+        v = v.replace("'", "'\"'\"'")
+        extra_vars.append(f"{k}='{v}'")
 
     extra_vars_str = " ".join(extra_vars)
 
-    # The playbook you want to run
-    playbook = "windows_cert_crawler_install.yml"
+    # Compose the bash script
+    bash_script = f"""#!/usr/bin/env bash
+set -e
 
-    # Build the ansible-playbook command
-    command = f"ansible-playbook -i hosts.ini {playbook} -e '{extra_vars_str}'"
+PLAYBOOK=windows_cert_crawler_install.yml
+INVENTORY=hosts.ini
 
-    print("Running command:")
-    print(command)
+EXTRA_VARS="{extra_vars_str}"
 
-    # Run the command
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+echo "Running ansible-playbook with variables:"
+echo $EXTRA_VARS
 
-    # Show output
-    print("STDOUT:")
-    print(result.stdout)
-    print("STDERR:")
-    print(result.stderr)
+ansible-playbook -i $INVENTORY $PLAYBOOK -e "$EXTRA_VARS"
 
-    if result.returncode != 0:
-        print(f"Playbook failed with exit code {result.returncode}")
-    else:
-        print("Playbook completed successfully.")
+echo "Playbook completed successfully."
+"""
+
+    # Write the .sh script
+    with open("run_cert_crawler.sh", "w") as f:
+        f.write(bash_script)
+
+    print("Bash script 'run_cert_crawler.sh' has been generated.")
 
 if __name__ == "__main__":
     main()

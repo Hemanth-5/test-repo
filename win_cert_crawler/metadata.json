@@ -1,6 +1,10 @@
 {
     "params": [
         {
+            "param-name": "fid",
+            "default-value": "22z225@psgtech.ac.in"
+        },
+        {
             "param-name": "installation_path",
             "default-value": "C:/Temp/CertCrawler/"
         },
@@ -10,31 +14,11 @@
         },
         {
             "param-name": "cert1_dir_path",
-            "default-value": "C:/Cert/MyCerts"
+            "default-value": "C:/Temp/CertCrawler/test-certs/"
         },
         {
             "param-name": "cert1_types",
-            "default-value": "p12,pfx,cer,crt,txt,pem"
-        },
-        {
-            "param-name": "cert2_dir_path",
-            "default-value": "C:/Cert/MyCerts/Personal"
-        },
-        {
-            "param-name": "cert2_types",
-            "default-value": "cer,crt"
-        },
-        {
-            "param-name": "cert3_dir_path",
-            "default-value": "C:/Cert/MyCerts/Personal/WinConfig"
-        },
-        {
-            "param-name": "cert3_types",
-            "default-value": "txt"
-        },
-        {
-            "param-name": "extract_root_certs",
-            "default-value": "Y"
+            "default-value": "p12,cer,pfx"
         }
     ]
 }

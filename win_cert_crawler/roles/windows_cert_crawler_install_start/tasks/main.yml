@@ -1,45 +1,69 @@
-- name: Debug - Show executable paths
-  debug:
-    msg: 
-      - "Encrypt.exe path: {{ encrypt_exe_path }}"
-      - "Crawler2.exe path: {{ crawler_exe_path }}"
-      - "CC Path: {{ cc_path }}"
-      - "Installation Path: {{ installation_path }}"
+# - name: Debug - Show executable paths
+#   debug:
+#     msg: 
+#       - "Encrypt.exe path: {{ encrypt_exe_path }}"
+#       - "Crawler2.exe path: {{ crawler_exe_path }}"
+#       - "CC Path: {{ cc_path }}"
+#       - "Installation Path: {{ installation_path }}"
 
-- name: Verify current host and working directory
-  win_shell: |
-    $hostname = $env:COMPUTERNAME
-    $username = $env:USERNAME
-    $currentDir = Get-Location
-    Write-Output "Running on host: $hostname"
-    Write-Output "Running as user: $username"
-    Write-Output "Current directory: $currentDir"
-    Write-Output "Executable path exists: $(Test-Path '{{ encrypt_exe_path }}')"
-    Write-Output "Crawler path exists: $(Test-Path '{{ crawler_exe_path }}')"
-  register: host_info
+# - name: Verify current host and working directory
+#   win_shell: |
+#     $hostname = $env:COMPUTERNAME
+#     $username = $env:USERNAME
+#     $currentDir = Get-Location
+#     Write-Output "Running on host: $hostname"
+#     Write-Output "Running as user: $username"
+#     Write-Output "Current directory: $currentDir"
+#     Write-Output "Executable path exists: $(Test-Path '{{ encrypt_exe_path }}')"
+#     Write-Output "Crawler path exists: $(Test-Path '{{ crawler_exe_path }}')"
+#   register: host_info
 
-- name: Display host information
-  debug:
-    msg: "{{ host_info.stdout_lines }}"
+# - name: Display host information
+#   debug:
+#     msg: "{{ host_info.stdout_lines }}"
 
 - name: Execute Encrypt.exe with args
   win_shell: >
     powershell.exe -ExecutionPolicy Bypass -Command "Set-Location '{{ cc_path }}'; & '{{ encrypt_exe_path }}' {{ exe_arguments }}; exit $LASTEXITCODE"
-  register: encrypt_output
-  failed_when: encrypt_output.rc != 0
+  register: exe_result
+  failed_when: exe_result.rc != 0
   when: operation_mode == "opmode2"
 
-- name: Display Encrypt.exe output
-  debug:
-    msg: "Encrypt.exe output: {{ encrypt_output.stdout }}"
+- name: Log detailed Encrypt.exe execution result
+  win_shell: |
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Encrypt.exe execution details:"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Return code: {{ exe_result.rc }}"
+    {% if exe_result.stdout %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- ENCRYPT.EXE OUTPUT START ---"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "{{ exe_result.stdout }}"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- ENCRYPT.EXE OUTPUT END ---"
+    {% endif %}
+    {% if exe_result.stderr %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "ERRORS: {{ exe_result.stderr }}"
+    {% endif %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "=========="
   when: operation_mode == "opmode2"
 
 - name: Execute Crawler2.exe
   win_shell: >
     powershell.exe -ExecutionPolicy Bypass -Command "Set-Location '{{ cc_path }}'; & '{{ crawler_exe_path }}'; exit $LASTEXITCODE"
-  register: crawler_output
-  failed_when: crawler_output.rc != 0
+  register: exe_result
+  failed_when: exe_result.rc != 0
 
-- name: Display Crawler2.exe output
-  debug:
-    msg: "Crawler2.exe output: {{ crawler_output.stdout }}"
+- name: Log detailed Crawler2.exe execution result
+  win_shell: |
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Crawler2.exe execution details:"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Return code: {{ exe_result.rc }}"
+    {% if exe_result.stdout %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- CRAWLER2.EXE OUTPUT START ---"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "{{ exe_result.stdout }}"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- CRAWLER2.EXE OUTPUT END ---"
+    {% endif %}
+    {% if exe_result.stderr %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "ERRORS: {{ exe_result.stderr }}"
+    {% endif %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "=========="
+
+# - name: Display Crawler2.exe output
+#   debug:
+#     msg: "Crawler2.exe output: {{ exe_result.stdout }}"

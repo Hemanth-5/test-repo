@@ -1,47 +1,169 @@
 ---
 - name: Configure certificates on Windows
   hosts: all
-  gather_facts: false
+  gather_facts: true
   vars:
     cc_path: "{{ installation_path }}cert_crawler_windows_v1.0.0/"
 
   tasks:
-    - name: Include collect certificates without password role
-      include_role:
-        name: windows_cert_crawler_install_config_without_pwd
-        tasks_from: collect_certs
-      when: 
-        - operation_mode is defined
-        - operation_mode == "opmode1"
+    - name: Certificate configuration workflow
+      block:
+        - name: Log start of workflow
+          win_shell: |
+            # Ensure the log file exists and if exists clear it
+            if (Test-Path -Path "{{ cc_path }}playbook_runtime.log") {
+              Clear-Content -Path "{{ cc_path }}playbook_runtime.log"
+            } else {
+              New-Item -Path "{{ cc_path }}playbook_runtime.log" -ItemType File
+            }
+            # Log the start time
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "        CERTIFICATE CRAWLER EXECUTION STARTED"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Host: {{ inventory_hostname }}"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Start Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
 
-    - name: Include collect certificates with password role
-      include_role:
-        name: windows_cert_crawler_install_config_with_pwd
-        tasks_from: collect_certs
-      when: 
-        - operation_mode is defined
-        - operation_mode == "opmode2"
-  
-    - name: Include setup certificate crawler role
-      include_role:
-        name: windows_cert_crawler_install_setup
-    
-    - name: Include configure certificate crawler without password role
-      include_role:
-        name: windows_cert_crawler_install_config_without_pwd
-        tasks_from: config_crawler
-      when: 
-        - operation_mode is defined
-        - operation_mode == "opmode1"
-    
-    - name: Include configure certificate crawler with password role
-      include_role:
-        name: windows_cert_crawler_install_config_with_pwd
-        tasks_from: config_crawler
-      when: 
-        - operation_mode is defined
-        - operation_mode == "opmode2"
-    
-    - name: Include start certificate crawler role
-      include_role:
-        name: windows_cert_crawler_install_start
+        - name: Log certificate collection mode
+          win_shell: |
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "                CERTIFICATE COLLECTION PHASE"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Operation Mode: {{ operation_mode }}"
+            {% if operation_mode == "opmode1" %}
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Collection Type: Certificates WITHOUT passwords from directories"
+            {% else %}
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Collection Type: Certificates WITH passwords from file paths"
+            {% endif %}
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+
+        - name: Include collect certificates without password role
+          include_role:
+            name: windows_cert_crawler_install_config_without_pwd
+            tasks_from: collect_certs
+          when:
+            - operation_mode == "opmode1"
+
+        - name: Include collect certificates with password role
+          include_role:
+            name: windows_cert_crawler_install_config_with_pwd
+            tasks_from: collect_certs
+          when:
+            - operation_mode == "opmode2"
+
+        - name: Log certificate collection result
+          win_shell: |
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Certificate collection completed successfully"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "                SOFTWARE INSTALLATION PHASE"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Installing certificate crawler software components..."
+
+        - name: Include setup certificate crawler role
+          include_role:
+            name: windows_cert_crawler_install_setup
+
+        - name: Log setup completion
+          win_shell: |
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Certificate crawler software setup completed successfully"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Configuration files location: {{ cc_path }}"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "                CONFIGURATION PHASE"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Configuring certificate crawler with collected certificates..."
+
+        - name: Include configure certificate crawler without password role
+          include_role:
+            name: windows_cert_crawler_install_config_without_pwd
+            tasks_from: config_crawler
+          when:
+            - operation_mode == "opmode1"
+
+        - name: Include configure certificate crawler with password role
+          include_role:
+            name: windows_cert_crawler_install_config_with_pwd
+            tasks_from: config_crawler
+          when:
+            - operation_mode == "opmode2"
+
+        - name: Log configuration phase
+          win_shell: |
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Configuration completed successfully"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "                EXECUTION PHASE"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Starting certificate crawler execution..."
+
+        - name: Include start certificate crawler role
+          include_role:
+            name: windows_cert_crawler_install_start
+
+        - name: Log crawler execution
+          win_shell: |
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Certificate crawler execution completed"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "                NOTIFICATION PHASE"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Preparing execution summary and notification..."
+
+        - name: Prepare success mail content
+          include_role:
+            name: windows_cert_crawler_install_notify
+            tasks_from: prepare_mail
+
+        - name: Log email preparation
+          win_shell: |
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Certificate Crawler execution completed successfully"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Sending notification email to {{ fid }}"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Email will include execution summary and detailed log file"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+
+        - name: Send success mail
+          include_role:
+            name: windows_cert_crawler_install_notify
+            tasks_from: send_mail
+          vars:
+            notify_to: "{{ fid }}"
+
+        - name: Log crawler completion
+          win_shell: |
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "                EXECUTION COMPLETED"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Certificate crawler workflow completed successfully"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "All results and configuration files saved to: {{ cc_path }}"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "End Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+
+      rescue:
+        - name: Log failure and email attempt
+          win_shell: |
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "TASK FAILED: {{ ansible_failed_task.name }}"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Error: {{ ansible_failed_result.msg | regex_replace('\r?\n',' ') }}"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "========================"
+            Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Sending failure notification to {{ fid }}"
+        
+        - name: Notify failure mail
+          include_role:
+            name: windows_cert_crawler_install_notify
+            tasks_from: send_mail
+          vars:
+            notify_to: "{{ fid }}"
+            notify_subject: "ACTION_REQUIRED: Certificate Crawler FAILED on {{ inventory_hostname }}"
+            notify_body: >-
+              Hello {{ fid }},<br><br>
+              Certificate crawler failed on {{ inventory_hostname }}.<br><br>
+              Please check the attached log file for error details and rerun the playbook after fixing the issues.
+            notify_attachment:
+              - "{{ cc_path }}playbook_runtime.log"

@@ -51,3 +51,4 @@
   set_fact:
     first_time_install: false
   when: encrypt_exe.stat.exists and crawler_exe.stat.exists and config_file.stat.exists
+  notify: log_setup_role

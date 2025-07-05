@@ -16,3 +16,4 @@
 - name: Display Powershell script output
   debug:
     msg: "Powershell script output: {{ ps_output.stdout }}"
+  notify: log_config_crawler_without_pwd

@@ -1,0 +1,6 @@
+---
+# handlers/main.yml for windows_cert_crawler_install_setup
+
+- name: log_setup_role
+  win_shell: |
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "setup role completed successfully at {{ ansible_date_time.iso8601 }}"

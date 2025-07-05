@@ -16,3 +16,4 @@
       {%- endif -%}
       {%- endfor -%}
       {{ args | join(' ') }}
+  notify: log_config_crawler_with_pwd

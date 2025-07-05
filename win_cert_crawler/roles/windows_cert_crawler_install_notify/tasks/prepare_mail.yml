@@ -1,0 +1,269 @@
+---
+- name: Check if CSV exists
+  win_stat:
+    path: "{{ cc_path }}crawlerCert.csv"
+  register: cert_csv
+
+- name: Read CSV contents if exists
+  win_shell: Get-Content "{{ cc_path }}crawlerCert.csv"
+  register: cert_csv_content
+  when: cert_csv.stat.exists
+
+- name: Log detailed CSV analysis
+  win_shell: |
+    {% if cert_csv.stat.exists %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "=== CERTIFICATE PROCESSING ANALYSIS ==="
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "CSV file found: {{ cc_path }}crawlerCert.csv"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- CSV CONTENT START ---"
+    {% for line in cert_csv_content.stdout_lines %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "{{ line }}"
+    {% endfor %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- CSV CONTENT END ---"
+    
+    # Count different types of results
+    $totalCerts = (Get-Content "{{ cc_path }}crawlerCert.csv" | Measure-Object -Line).Lines - 1
+    $invalidCerts = (Get-Content "{{ cc_path }}crawlerCert.csv" | Select-String "Invalid Certificate" | Measure-Object).Count
+    $passwordErrors = (Get-Content "{{ cc_path }}crawlerCert.csv" | Select-String "CERT Password is Not Valid" | Measure-Object).Count
+    $successfulCerts = $totalCerts - $invalidCerts - $passwordErrors
+    
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "PROCESSING SUMMARY:"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Total certificates processed: $totalCerts"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Successful: $successfulCerts"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Invalid certificates: $invalidCerts"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Password errors: $passwordErrors"
+    {% else %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "=== CERTIFICATE PROCESSING ANALYSIS ==="
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "ERROR: No CSV file generated - Certificate processing failed"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "This indicates a critical configuration or execution error"
+    {% endif %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "==============================="
+  when: true
+
+- name: Log CSV analysis start
+  win_shell: |
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "CERTIFICATE ANALYSIS REPORT:"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "========================"
+  when: cert_csv.stat.exists
+
+- name: Extract certificates with invalid certificate error
+  set_fact:
+    invalid_cert_lines: >-
+      {{
+        cert_csv_content.stdout.splitlines()[1:]
+        | select('search', 'Invalid Certificate')
+        | map('split', ',')
+        | map(attribute=2)
+        | list
+      }}
+  when: cert_csv.stat.exists
+
+- name: Extract certificates with password errors
+  set_fact:
+    password_error_certs: []
+  when: cert_csv.stat.exists
+
+- name: Process password error certificates
+  set_fact:
+    password_error_certs: "{{ password_error_certs + [item.split(',')[2]] }}"
+  loop: "{{ cert_csv_content.stdout.splitlines()[1:] }}"
+  when: 
+    - cert_csv.stat.exists
+    - "'CERT Password is Not Valid' in item"
+    - "item.split(',') | length > 2"
+  no_log: true
+
+- name: Extract invalid certificates
+  set_fact:
+    invalid_certs: []
+  when: cert_csv.stat.exists
+
+- name: Process invalid certificates
+  set_fact:
+    invalid_certs: "{{ invalid_certs + [item.split(',')[2]] }}"
+  loop: "{{ cert_csv_content.stdout.splitlines()[1:] }}"
+  when: 
+    - cert_csv.stat.exists
+    - "'Invalid Certificate' in item"
+    - "item.split(',') | length > 2"
+  no_log: true
+
+- name: Extract valid certificates with details
+  set_fact:
+    valid_certs_details: >-
+      {{
+        cert_csv_content.stdout.splitlines()[1:]
+        | reject('search', 'CERT Password is Not Valid')
+        | reject('search', 'Invalid Certificate')
+        | list
+      }}
+  when: cert_csv.stat.exists
+
+- name: Count certificate status
+  set_fact:
+    cert_summary:
+      total: "{{ cert_csv_content.stdout.splitlines()[1:] | length if cert_csv.stat.exists else 0 }}"
+      password_errors: "{{ password_error_certs | length if password_error_certs is defined else 0 }}"
+      invalid: "{{ invalid_certs | length if invalid_certs is defined else 0 }}"
+      valid: "{{ valid_certs_details | length if valid_certs_details is defined else 0 }}"
+  when: cert_csv.stat.exists
+
+- name: Log detailed certificate analysis
+  win_shell: |
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "               CERTIFICATE ANALYSIS REPORT"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+    {% if cert_csv.stat.exists %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Total certificates processed: {{ cert_summary.total }}"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Valid certificates: {{ cert_summary.valid }}"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Password errors: {{ cert_summary.password_errors }}"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Invalid certificates: {{ cert_summary.invalid }}"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+    {% if password_error_certs is defined and password_error_certs|length > 0 %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "CERTIFICATES WITH PASSWORD ISSUES:"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "---------------------------------------------------"
+    {% for cert in password_error_certs %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "  [ERROR] {{ cert }}"
+    {% endfor %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "ACTION REQUIRED: Verify passwords for above certificates"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "                 OR use operation_mode='opmode1' if passwords not needed"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "---------------------------------------------------"
+    {% endif %}
+    {% if invalid_certs is defined and invalid_certs|length > 0 %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "INVALID CERTIFICATES:"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "---------------------------------------------------"
+    {% for cert in invalid_certs %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "  [ERROR] {{ cert }}"
+    {% endfor %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "ACTION REQUIRED: Replace or fix the above certificate files"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "---------------------------------------------------"
+    {% endif %}
+    {% if valid_certs_details is defined and valid_certs_details|length > 0 %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "SUCCESSFULLY PROCESSED CERTIFICATES:"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "---------------------------------------------------"
+    {% for cert_line in valid_certs_details %}
+    {% set cert_parts = cert_line.split(',') %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "  [SUCCESS] Certificate: {{ cert_parts[2] }}"
+    {% if cert_parts|length > 3 and cert_parts[3] != 'CERT Password is Not Valid' and cert_parts[3] != 'Invalid Certificate' %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "    Serial Number: {{ cert_parts[3] }}"
+    {% endif %}
+    {% if cert_parts|length > 4 and cert_parts[4] != 'NA' %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "    Subject: {{ cert_parts[4] }}"
+    {% endif %}
+    {% if cert_parts|length > 6 and cert_parts[6] != 'NA' %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "    Expiration: {{ cert_parts[6] }} {% if cert_parts|length > 7 and cert_parts[7] != 'NA' %}({{ cert_parts[7] }} days remaining){% endif %}"
+    {% endif %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+    {% endfor %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "---------------------------------------------------"
+    {% endif %}
+    {% else %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "No CSV file generated - execution or configuration error detected"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "POSSIBLE ISSUES:"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "---------------------------------------------------"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "- Certificate paths not found or inaccessible"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "- Application execution failed"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "- Configuration file errors"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value ""
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "ACTION REQUIRED: Check exe execution logs above for specific errors"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "---------------------------------------------------"
+    {% endif %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "============================================================="
+  when: cert_csv.stat.exists or not cert_csv.stat.exists
+
+- name: Set mail content based on conditions
+  set_fact:
+    notify_subject: >-
+      {{
+        (
+          'ACTION_REQUIRED: Certificate Configuration Issue on ' + inventory_hostname if (
+            (not cert_csv.stat.exists) and (
+              'Could not find a part of the path' in exe_result.stdout or
+              'Password is Invalid' in exe_result.stdout
+            )
+          )
+          else
+          'ACTION_REQUIRED: Invalid Certificates Found on ' + inventory_hostname if (
+            cert_csv.stat.exists and invalid_certs is defined and invalid_certs|length > 0
+          )
+          else
+          'ACTION_REQUIRED: Certificate Password Issues on ' + inventory_hostname if (
+            cert_csv.stat.exists and password_error_certs is defined and password_error_certs|length > 0
+          )
+          else
+          'SUCCESS: Certificate Crawler Completed on ' + inventory_hostname
+        ).replace('\n','').strip()
+      }}
+    notify_body: >-
+      {% if not cert_csv.stat.exists %}
+        Hello {{ fid }},<br><br>
+        Certificate crawler failed on {{ inventory_hostname }} due to configuration issues.<br><br>
+        <strong>Configuration Error:</strong> No certificates were processed<br>
+        Likely cause: Invalid certificate paths or execution failure<br><br>
+        Please check the attached log file for specific error details and fix the configuration before rerunning.
+
+      {% elif password_error_certs is defined and password_error_certs|length > 0 %}
+        Hello {{ fid }},<br><br>
+        Certificate crawler completed with password issues on {{ inventory_hostname }}.<br><br>
+        <strong>Processing Summary:</strong><br>
+        - Total certificates: {{ cert_summary.total }}<br>
+        - Successfully processed: {{ cert_summary.valid }}<br>
+        - Password errors: {{ cert_summary.password_errors }}<br>
+        - Invalid certificates: {{ cert_summary.invalid }}<br><br>
+        <strong>Certificates requiring password verification:</strong><br>
+        {% for cert in password_error_certs %}
+        - {{ cert.split('\\')[-1] if '\\' in cert else cert }}<br>
+        {% endfor %}<br>
+        Please verify passwords for the listed certificates or use opmode1 if passwords aren't required.<br>
+        Detailed analysis available in attached log file.
+
+      {% elif invalid_certs is defined and invalid_certs|length > 0 %}
+        Hello {{ fid }},<br><br>
+        Certificate crawler found invalid certificates on {{ inventory_hostname }}.<br><br>
+        <strong>Processing Summary:</strong><br>
+        - Total certificates: {{ cert_summary.total }}<br>
+        - Successfully processed: {{ cert_summary.valid }}<br>
+        - Invalid certificates: {{ cert_summary.invalid }}<br><br>
+        <strong>Certificates requiring replacement:</strong><br>
+        {% for cert in invalid_certs %}
+        - {{ cert.split('\\')[-1] if '\\' in cert else cert }}<br>
+        {% endfor %}<br>
+        Please replace the invalid certificate files and rerun the crawler.<br>
+        Detailed analysis available in attached log file.
+
+      {% else %}
+        Hello {{ fid }},<br><br>
+        <strong>Certificate Crawler - SUCCESS</strong><br>
+        Host: {{ inventory_hostname }}<br>
+        Status: {{ cert_summary.total if cert_summary is defined else 'Unknown' }} certificate(s) processed successfully<br><br>
+        {% if valid_certs_details is defined and valid_certs_details|length > 0 %}
+        <strong>Certificate Status Overview:</strong><br>
+        {% for cert_line in valid_certs_details %}
+        {% set cert_parts = cert_line.split(',') %}
+        - {{ cert_parts[2].split('\\')[-1] if '\\' in cert_parts[2] else cert_parts[2] }} - {% if cert_parts|length > 6 and cert_parts[6] != 'NA' %}Expires: {{ cert_parts[6] }}{% if cert_parts|length > 7 and cert_parts[7] != 'NA' %} ({{ cert_parts[7] }} days){% endif %}{% else %}Valid{% endif %}<br>
+        {% endfor %}<br>
+        {% endif %}
+        All certificates are valid and configured successfully.<br>
+        Results saved to: {{ cc_path }}<br>
+        Detailed execution log attached for record keeping.
+      {% endif %}
+- name: Check if log file exists
+  win_stat:
+    path: "{{ cc_path }}playbook_runtime.log"
+  register: log_file_check
+
+- name: Prepare attachment list with log file only
+  set_fact:
+    notify_attachment: "{{ [cc_path + 'playbook_runtime.log'] if log_file_check.stat.exists else [] }}"
+
+# - name: Print the mail content
+#   debug:
+#     msg:
+#       - "Subject: {{ notify_subject }}"
+#       - "Body: {{ notify_body }}"
+#       - "Attachments: {{ notify_attachment if notify_attachment is defined and notify_attachment|length > 0 else 'None' }}"
