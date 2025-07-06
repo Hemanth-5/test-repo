@@ -3,4 +3,5 @@
 
 - name: log_start_crawler
   win_shell: |
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "start crawler completed successfully at {{ ansible_date_time.iso8601 }}"
+    $timestamp = Get-Date -Format "MM/dd HH:mm:ss"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp INFO   :...execution_engine: certificate processing completed successfully"

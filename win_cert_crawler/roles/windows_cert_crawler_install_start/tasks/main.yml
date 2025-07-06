@@ -31,17 +31,18 @@
 
 - name: Log detailed Encrypt.exe execution result
   win_shell: |
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Encrypt.exe execution details:"
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Return code: {{ exe_result.rc }}"
+    $timestamp = Get-Date -Format "MM/dd HH:mm:ss"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp INFO   :...encrypt_engine: Encrypt.exe execution return code: {{ exe_result.rc }}"
     {% if exe_result.stdout %}
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- ENCRYPT.EXE OUTPUT START ---"
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "{{ exe_result.stdout }}"
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- ENCRYPT.EXE OUTPUT END ---"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp TRACE  :...encrypt_engine: stdout captured, processing output"
+    {% for line in exe_result.stdout.splitlines() %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp TRACE  :...encrypt_engine: {{ line }}"
+    {% endfor %}
     {% endif %}
     {% if exe_result.stderr %}
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "ERRORS: {{ exe_result.stderr }}"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp WARNING:...encrypt_engine: stderr detected: {{ exe_result.stderr }}"
     {% endif %}
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "=========="
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp INFO   :...encrypt_engine: certificate encryption phase completed"
   when: operation_mode == "opmode2"
 
 - name: Execute Crawler2.exe
@@ -52,17 +53,18 @@
 
 - name: Log detailed Crawler2.exe execution result
   win_shell: |
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Crawler2.exe execution details:"
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "Return code: {{ exe_result.rc }}"
+    $timestamp = Get-Date -Format "MM/dd HH:mm:ss"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp INFO   :...crawler_engine: Crawler2.exe execution return code: {{ exe_result.rc }}"
     {% if exe_result.stdout %}
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- CRAWLER2.EXE OUTPUT START ---"
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "{{ exe_result.stdout }}"
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "--- CRAWLER2.EXE OUTPUT END ---"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp TRACE  :...crawler_engine: stdout captured, processing output"
+    {% for line in exe_result.stdout.splitlines() %}
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp TRACE  :...crawler_engine: {{ line }}"
+    {% endfor %}
     {% endif %}
     {% if exe_result.stderr %}
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "ERRORS: {{ exe_result.stderr }}"
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp WARNING:...crawler_engine: stderr detected: {{ exe_result.stderr }}"
     {% endif %}
-    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "=========="
+    Add-Content -Path "{{ cc_path }}playbook_runtime.log" -Value "$timestamp INFO   :...crawler_engine: certificate crawling phase completed"
 
 # - name: Display Crawler2.exe output
 #   debug:
